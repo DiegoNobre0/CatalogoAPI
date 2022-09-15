@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace APICatalogo_.Models
 {
@@ -10,14 +11,14 @@ namespace APICatalogo_.Models
     {
         [Key]
         public int ProdutoId { get; set; }
-        //Força a aplicar dados na entidade "Name" e restringe a quantidade de strings.
+        //Força a aplicar dados na propriedade "Name" e restringe a quantidade de strings.
         [Required]
         [StringLength(80)]
         public string? Nome { get; set; }
         [Required]
         [StringLength(300)]
         public string? Descricao { get; set; }
-        //Força a aplicar dados na entidade "Price" e restringe a quantidade de numeros e decimais.
+        //Força a aplicar dados na propriedade "Price" e restringe a quantidade de numeros e decimais.
         [Required]
         [Column(TypeName ="decimal(10,2)")]
         public decimal Preco { get; set; }
@@ -27,6 +28,8 @@ namespace APICatalogo_.Models
         public float Estoque { get; set; }
         public DateTime DataCadastro { get; set; }
         public int CategoriaId { get; set; }
+        //JsonIgnore usado para bloquer a exibição da entidade "categoria" 
+        [JsonIgnore]
         public Categoria? Categoria { get; set; }
 
 

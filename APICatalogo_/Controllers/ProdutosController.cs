@@ -10,6 +10,7 @@ namespace APICatalogo_.Controllers
     [ApiController]
     public class ProdutosController : ControllerBase
     {
+        //INJEÇÃO DE DEPENDENCIA
         private readonly AppDbContext _context;
 
         public ProdutosController(AppDbContext context)
@@ -23,29 +24,52 @@ namespace APICatalogo_.Controllers
         [HttpGet]
         public ActionResult<IEnumerable<Produto>> Get()
         {
-            var produtos = _context.Produtos.ToList();
-            if (produtos is null)
+            try
             {
-                return NotFound();
+                var produtos = _context.Produtos.ToList();
+                if (produtos is null)
+                {
+                    return NotFound();
+                }
+                return produtos;
             }
-            return produtos;
+            catch (Exception)
+            {
+
+                return StatusCode(StatusCodes.Status500InternalServerError,
+                    "Ocorreu um problema ao tratar a sya solicitação");
+            }
+
         }
         //metodo para retorno de acordo com o ID do produto
         [HttpGet("{id:int}", Name = "ObterProduto")]
         public ActionResult<Produto> Get(int id)
         {
-            var produto = _context.Produtos.FirstOrDefault(p => p.ProdutoId == id);
-            if (produto is null)
+            try
             {
-                return NotFound("Produto não encontrado");
+                var produto = _context.Produtos.FirstOrDefault(p => p.ProdutoId == id);
+                if (produto is null)
+                {
+                    return NotFound("Produto não encontrado");
+                }
+                return produto;
             }
-            return produto;
+            catch (Exception)
+            {
+
+                return StatusCode(StatusCodes.Status500InternalServerError,
+                    "Ocorreu um problema ao tratar a sya solicitação");
+            }
         }
+
+
         [HttpPost]
         public ActionResult Post(Produto produto)
         {
-            if (produto is null)
+            if (produto is null) 
+            { 
                 return BadRequest();
+            }               
 
 
             //metodo vai incluir o produto no contexto.
@@ -62,7 +86,7 @@ namespace APICatalogo_.Controllers
         [HttpPut("{id:int}")]
         public ActionResult Put(int id, Produto produto)
         {
-            if(id != produto.ProdutoId)
+            if (id != produto.ProdutoId)
             {
                 return BadRequest();
             }
@@ -71,6 +95,22 @@ namespace APICatalogo_.Controllers
             _context.SaveChanges();
             return Ok(produto);
         }
+        
+        [HttpDelete("{id:int}")]
+        public ActionResult Delete(int id)
+        {
+            var produto = _context.Produtos.FirstOrDefault(p => p.ProdutoId == id);
+
+            if (produto is null)
+            {
+                return NotFound("Produto não localizado...");
+            }
+            _context.Produtos.Remove(produto);
+            _context.SaveChanges();
+
+            return Ok();
+        }
+
 
     }
 }

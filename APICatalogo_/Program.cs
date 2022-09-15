@@ -1,11 +1,17 @@
 using APICatalogo_.Context;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
+//"ReferenceHandler" - define como o jsonserializer lida com referencias sobre serialização e desserializaçao
+//"IgnoreCycles" - igona o objeto quando um ciclo de referencia é detectado durante a serialização.
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+        options.JsonSerializerOptions
+        .ReferenceHandler = ReferenceHandler.IgnoreCycles);
 
-builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 //obtenção da conexão e o registro do provedor
