@@ -1,46 +1,79 @@
 ﻿using APICatalogo_.Context;
+using APICatalogo_.DTOs;
 using APICatalogo_.Models;
-using Microsoft.AspNetCore.Http;
+using APICatalogo_.Pagination;
+using APICatalogo_.Repository;
+using AutoMapper;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Newtonsoft.Json;
 
 namespace APICatalogo_.Controllers
 {
-    [Route("[controller]")]
+    [Produces("application/json")]
+    [Route("api/[controller]")]
     [ApiController]
+    //[Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+    //[EnableCors("PermitirApiRequest")]
     public class CategoriasController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly IUnitOfWork _uof;
+        private readonly IMapper _mapper;
 
-        public CategoriasController(AppDbContext context)
+        public CategoriasController(IUnitOfWork context, IMapper mapper)
         {
-            _context = context;
+            _uof = context;
+            _mapper = mapper;
         }
-
+                        
         //retorna a categoria e os produtos
         //Nunca retorne objetos relacionados sem aplicar filtro.
         [HttpGet("produtos")]
-        public ActionResult<IEnumerable<Categoria>> GetCategoriasProdutos()
+        public async Task<ActionResult<IEnumerable<CategoriaDTO>>> GetCategoriasProdutos()
         {
             try
             {
-                return _context.Categorias.Include(p => p.Produtos).ToList();
+                var categorias = await _uof.CategoriaRepository.GetCategoriasProdutos();
+
+                var categoriasDto = _mapper.Map<List<CategoriaDTO>>(categorias);
+                return categoriasDto;
+                
             }
             catch (Exception)
             {
 
                 return StatusCode(StatusCodes.Status500InternalServerError,
-                    "Ocorreu um problema ao tratar a sya solicitação");
+                    "Ocorreu um problema ao tratar a sua solicitação");
             }
            
         }
 
         [HttpGet]
-        public ActionResult<IEnumerable<Categoria>> Get()
+        public async Task<ActionResult<IEnumerable<CategoriaDTO>>> 
+            Get([FromQuery] CategoriasParameters categoriasParameters)
         {
             try
             {
-                return _context.Categorias.ToList();
+                var categorias = await _uof.CategoriaRepository.GetCategorias(categoriasParameters);
+
+                var metadata = new
+                {
+                    categorias.TotalCount,
+                    categorias.PageSize,
+                    categorias.CurrentPage,
+                    categorias.TotalPages,
+                    categorias.HasNext,
+                    categorias.HasPrevious
+                };
+
+                Response.Headers.Add("X-Pagonation", JsonConvert.SerializeObject(metadata));
+
+                var categoriasDto = _mapper.Map<List<CategoriaDTO>>(categorias);
+                return categoriasDto;
+                
             }
             catch (Exception)
             {
@@ -50,19 +83,26 @@ namespace APICatalogo_.Controllers
             }
             
         }
-
+        /// <summary>
+        /// Obtem uma Categoria pelo seu Id
+        /// </summary>
+        /// <param name="id">codigo da caregoria</param>
+        /// <returns>Objetos Categoria </returns>
         [HttpGet("{id:int}", Name = "ObterCategoria")]
-        public ActionResult<Categoria> Get(int id)
+        public async Task<ActionResult<CategoriaDTO>> Get(int id)
         {
             try
             {
-                var categoria = _context.Categorias.FirstOrDefault(p => p.CategoriaId == id);
+                var categoria = await _uof.CategoriaRepository.GetById(p => p.CategoriaId == id);
                
                 if (categoria is null)
                 {
                     return NotFound($"Categoria com id{id} não foi encontrada...");
                 }
-                return categoria;
+
+                var categoriaDto = _mapper.Map<CategoriaDTO>(categoria);
+
+                return categoriaDto;
             }
             catch (Exception)
             {
@@ -72,18 +112,35 @@ namespace APICatalogo_.Controllers
             }                    
            
         }
+
+        /// <summary>
+        /// Inclui uma nova categoria
+        /// </summary>
+        /// <remarks>
+        /// Exemplo de request:
+        ///     POST api/categorias
+        ///     {
+        ///         "categoriaId": 1,
+        ///         "nome": "categoria1",
+        ///         "imagemUrl": "http://teste.net/1.jpg"
+        ///     }    
+        ///     
+        /// </remarks>
+        /// <param name="categoriaDto">objeto Categoria</param>
+        /// <returns>O objeto categoria incluida</returns>
+        /// <remarks>Retorna um objeto Categoria incluido</remarks>
         [HttpPost]
-        public ActionResult Post(Categoria categoria)
+        public async Task<ActionResult> Post([FromBody]CategoriaDTO categoriaDto)
         {
-            if (categoria is null)
-                return BadRequest();
-
-
+            
             //metodo vai incluir o produto no contexto.
             //metodo SaveChanges vai salvar no banco de dados.
+            var categoria = _mapper.Map<Categoria>(categoriaDto);
 
-            _context.Categorias.Add(categoria);
-            _context.SaveChanges();
+            _uof.CategoriaRepository.Add(categoria);
+            await _uof.Commit();
+
+            var categoriaDTO = _mapper.Map<CategoriaDTO>(categoria);
 
             //CreatedAtRouteResult que é uma actionresult que retorna um 201 e
             //aciona a rota "ObterProduto", e vai usar o metodo GET e retorna os dados do produto
@@ -92,30 +149,37 @@ namespace APICatalogo_.Controllers
         }
 
         [HttpPut("{id:int}")]
-        public ActionResult Put(int id, Categoria categoria)
+        [ApiConventionMethod(typeof(DefaultApiConventions),
+            nameof(DefaultApiConventions.Put))]
+        public async Task<ActionResult> Put(int id,[FromBody]CategoriaDTO categoriaDto)
         {
-            if (id != categoria.CategoriaId)
+            if (id != categoriaDto.CategoriaId)
             {
                 return BadRequest();
             }
-
-            _context.Entry(categoria).State = EntityState.Modified;
-            _context.SaveChanges();
-            return Ok(categoria);
+            
+            var categoria = _mapper.Map<Categoria>(categoriaDto);
+           
+            _uof.CategoriaRepository.Update(categoria);
+            await _uof.Commit();
+            return Ok();
         }
         [HttpDelete("{id:int}")]
-        public ActionResult Delete(int id)
+        public async Task<ActionResult<CategoriaDTO>> Delete(int id)
         {
-            var categoria = _context.Categorias.FirstOrDefault(p => p.CategoriaId == id);
+            var categoria = await _uof.CategoriaRepository.GetById(p => p.CategoriaId == id);
 
             if (categoria is null)
             {
                 return NotFound("Categoria não localizado...");
             }
-            _context.Categorias.Remove(categoria);
-            _context.SaveChanges();
+            
+            _uof.CategoriaRepository.Delete(categoria);
+            await _uof.Commit();
 
-            return Ok();
+            var categoriaDto = _mapper.Map<CategoriaDTO>(categoria);
+
+            return categoriaDto;
         }
     }
 }

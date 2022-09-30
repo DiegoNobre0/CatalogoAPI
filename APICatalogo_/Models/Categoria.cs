@@ -16,7 +16,7 @@ namespace APICatalogo_.Models
         [Required]
         [StringLength(80)]
         public string? Nome { get; set; }
-        
+
         [Required]
         [StringLength(300)]
         public string? ImagemUrl { get; set; }
@@ -27,4 +27,6 @@ namespace APICatalogo_.Models
             Produtos = new Collection<Produto>();
         }
     }
+
+
 }
